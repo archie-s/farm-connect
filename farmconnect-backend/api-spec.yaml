@@ -1,0 +1,1604 @@
+openapi: 3.0.3
+info:
+  title: FarmConnect API
+  description: |
+    Digital Agricultural Marketplace API for connecting smallholder farmers in Kenya 
+    with buyers, input suppliers, extension officers, and microfinance institutions.
+    
+    ## Authentication
+    This API uses JWT Bearer tokens for authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Rate Limiting
+    API requests are limited to 100 requests per 15-minute window per IP address.
+    
+    ## Error Handling
+    All errors follow the standard HTTP status codes with detailed error messages in JSON format.
+  version: 1.0.0
+  contact:
+    name: FarmConnect API Support
+    email: api-support@farmconnect.co.ke
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Development server
+  - url: https://api.farmconnect.co.ke/v1
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # =============================================================================
+  # AUTHENTICATION ENDPOINTS
+  # =============================================================================
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a new user
+      description: Create a new user account with email verification
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: User login
+      description: Authenticate user and return JWT tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh access token
+      description: Get a new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required: [refreshToken]
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: User logout
+      description: Invalidate user session and tokens
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  # =============================================================================
+  # USER MANAGEMENT ENDPOINTS
+  # =============================================================================
+  /users/profile:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      description: Retrieve the authenticated user's profile information
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Users]
+      summary: Update user profile
+      description: Update the authenticated user's profile information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/{userId}:
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      description: Retrieve public profile information for a specific user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUser'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =============================================================================
+  # PRODUCT LISTINGS ENDPOINTS
+  # =============================================================================
+  /listings:
+    get:
+      tags: [Product Listings]
+      summary: Get product listings
+      description: Retrieve product listings with optional filtering and pagination
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: location
+          in: query
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Listings retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingsResponse'
+
+    post:
+      tags: [Product Listings]
+      summary: Create product listing
+      description: Create a new product listing (farmers only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateListingRequest'
+      responses:
+        '201':
+          description: Listing created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListing'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /listings/{listingId}:
+    get:
+      tags: [Product Listings]
+      summary: Get listing by ID
+      description: Retrieve detailed information about a specific product listing
+      parameters:
+        - name: listingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Listing retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListing'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Product Listings]
+      summary: Update product listing
+      description: Update an existing product listing (owner only)
+      parameters:
+        - name: listingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateListingRequest'
+      responses:
+        '200':
+          description: Listing updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListing'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Product Listings]
+      summary: Delete product listing
+      description: Delete a product listing (owner only)
+      parameters:
+        - name: listingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Listing deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =============================================================================
+  # ORDERS ENDPOINTS
+  # =============================================================================
+  /orders:
+    get:
+      tags: [Orders]
+      summary: Get user orders
+      description: Retrieve orders for the authenticated user (as buyer or seller)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/OrderStatus'
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [buyer, seller]
+      responses:
+        '200':
+          description: Orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+
+    post:
+      tags: [Orders]
+      summary: Create order
+      description: Place an order for a product listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Get order by ID
+      description: Retrieve detailed information about a specific order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Orders]
+      summary: Update order status
+      description: Update the status of an order (seller only)
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/OrderStatus'
+              required: [status]
+      responses:
+        '200':
+          description: Order status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =============================================================================
+  # MESSAGING ENDPOINTS
+  # =============================================================================
+  /messages:
+    get:
+      tags: [Messages]
+      summary: Get user messages
+      description: Retrieve messages for the authenticated user
+      parameters:
+        - name: conversationWith
+          in: query
+          schema:
+            type: string
+          description: Filter messages with specific user
+        - name: orderId
+          in: query
+          schema:
+            type: string
+          description: Filter messages related to specific order
+      responses:
+        '200':
+          description: Messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+
+    post:
+      tags: [Messages]
+      summary: Send message
+      description: Send a message to another user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /messages/{messageId}/read:
+    patch:
+      tags: [Messages]
+      summary: Mark message as read
+      description: Mark a specific message as read
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =============================================================================
+  # LOAN APPLICATION ENDPOINTS
+  # =============================================================================
+  /loans:
+    get:
+      tags: [Loans]
+      summary: Get loan applications
+      description: Retrieve loan applications (farmers see their own, MFIs see all)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/LoanStatus'
+      responses:
+        '200':
+          description: Loan applications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoanApplication'
+
+    post:
+      tags: [Loans]
+      summary: Create loan application
+      description: Submit a new loan application (farmers only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLoanRequest'
+      responses:
+        '201':
+          description: Loan application created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplication'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /loans/{loanId}:
+    get:
+      tags: [Loans]
+      summary: Get loan application by ID
+      description: Retrieve detailed information about a specific loan application
+      parameters:
+        - name: loanId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Loan application retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplication'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Loans]
+      summary: Update loan application status
+      description: Update loan application status (MFIs only)
+      parameters:
+        - name: loanId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLoanStatusRequest'
+      responses:
+        '200':
+          description: Loan application updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplication'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # =============================================================================
+  # TRAINING ENDPOINTS
+  # =============================================================================
+  /training/modules:
+    get:
+      tags: [Training]
+      summary: Get training modules
+      description: Retrieve available training modules
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          schema:
+            $ref: '#/components/schemas/DifficultyLevel'
+      responses:
+        '200':
+          description: Training modules retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainingModule'
+
+  /training/modules/{moduleId}:
+    get:
+      tags: [Training]
+      summary: Get training module by ID
+      description: Retrieve detailed information about a specific training module
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Training module retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingModule'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /training/progress:
+    get:
+      tags: [Training]
+      summary: Get user training progress
+      description: Retrieve training progress for the authenticated user
+      responses:
+        '200':
+          description: Training progress retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserTrainingProgress'
+
+    post:
+      tags: [Training]
+      summary: Update training progress
+      description: Update progress for a specific training module
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProgressRequest'
+      responses:
+        '200':
+          description: Training progress updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserTrainingProgress'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # =============================================================================
+  # INFORMATION HUB ENDPOINTS
+  # =============================================================================
+  /weather:
+    get:
+      tags: [Information Hub]
+      summary: Get weather information
+      description: Retrieve weather forecasts and alerts for a specific location
+      parameters:
+        - name: location
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Weather information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherInfo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /market-prices:
+    get:
+      tags: [Information Hub]
+      summary: Get market prices
+      description: Retrieve current market prices for agricultural products
+      parameters:
+        - name: location
+          in: query
+          schema:
+            type: string
+        - name: product
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Market prices retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MarketPrice'
+
+  /alerts:
+    get:
+      tags: [Information Hub]
+      summary: Get agricultural alerts
+      description: Retrieve weather and pest alerts for a specific location
+      parameters:
+        - name: location
+          in: query
+          schema:
+            type: string
+        - name: alertType
+          in: query
+          schema:
+            type: string
+            enum: [RAIN, DROUGHT, STORM, PEST_OUTBREAK]
+      responses:
+        '200':
+          description: Alerts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WeatherAlert'
+
+  # =============================================================================
+  # UTILITY ENDPOINTS
+  # =============================================================================
+  /health:
+    get:
+      tags: [Utility]
+      summary: Health check
+      description: Check API health status
+      security: []
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # =============================================================================
+    # AUTHENTICATION SCHEMAS
+    # =============================================================================
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName, phoneNumber, role]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "farmer@example.com"
+        password:
+          type: string
+          minLength: 8
+          example: "SecurePassword123!"
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        phoneNumber:
+          type: string
+          example: "+254712345678"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        location:
+          type: string
+          example: "Nairobi, Kenya"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "farmer@example.com"
+        password:
+          type: string
+          example: "SecurePassword123!"
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          example: 900
+
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+          example: 900
+
+    # =============================================================================
+    # USER SCHEMAS
+    # =============================================================================
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "user_123456789"
+        email:
+          type: string
+          format: email
+          example: "farmer@example.com"
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        phoneNumber:
+          type: string
+          example: "+254712345678"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        profileImageUrl:
+          type: string
+          nullable: true
+        location:
+          type: string
+          example: "Nairobi, Kenya"
+        isVerified:
+          type: boolean
+          example: true
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        profileImageUrl:
+          type: string
+          nullable: true
+        location:
+          type: string
+        isVerified:
+          type: boolean
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+        location:
+          type: string
+        profileImageUrl:
+          type: string
+
+    UserRole:
+      type: string
+      enum: [FARMER, BUYER, MFI, EXTENSION_OFFICER, ADMIN]
+
+    # =============================================================================
+    # PRODUCT LISTING SCHEMAS
+    # =============================================================================
+    ProductListing:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "listing_123456789"
+        farmerId:
+          type: string
+        farmer:
+          $ref: '#/components/schemas/PublicUser'
+        title:
+          type: string
+          example: "Fresh Tomatoes"
+        description:
+          type: string
+          example: "High quality tomatoes, freshly harvested"
+        category:
+          type: string
+          example: "Vegetables"
+        pricePerUnit:
+          type: number
+          format: decimal
+          example: 50.00
+        unitType:
+          type: string
+          example: "kg"
+        quantityAvailable:
+          type: integer
+          example: 100
+        location:
+          type: string
+          example: "Nakuru, Kenya"
+        images:
+          type: array
+          items:
+            type: string
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+        harvestDate:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
+        qualityCertifications:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateListingRequest:
+      type: object
+      required: [title, description, category, pricePerUnit, unitType, quantityAvailable, location]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        pricePerUnit:
+          type: number
+          format: decimal
+        unitType:
+          type: string
+        quantityAvailable:
+          type: integer
+        location:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+        harvestDate:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
+        qualityCertifications:
+          type: array
+          items:
+            type: string
+
+    UpdateListingRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        pricePerUnit:
+          type: number
+          format: decimal
+        quantityAvailable:
+          type: integer
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+        images:
+          type: array
+          items:
+            type: string
+
+    ListingsResponse:
+      type: object
+      properties:
+        listings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductListing'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ListingStatus:
+      type: string
+      enum: [DRAFT, ACTIVE, SOLD, EXPIRED]
+
+    # =============================================================================
+    # ORDER SCHEMAS
+    # =============================================================================
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "order_123456789"
+        buyerId:
+          type: string
+        buyer:
+          $ref: '#/components/schemas/PublicUser'
+        listingId:
+          type: string
+        listing:
+          $ref: '#/components/schemas/ProductListing'
+        quantityOrdered:
+          type: integer
+          example: 10
+        totalAmount:
+          type: number
+          format: decimal
+          example: 500.00
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        deliveryAddress:
+          type: string
+          example: "123 Main St, Nairobi"
+        requestedDeliveryDate:
+          type: string
+          format: date
+        paymentDetails:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateOrderRequest:
+      type: object
+      required: [listingId, quantityOrdered, deliveryAddress]
+      properties:
+        listingId:
+          type: string
+        quantityOrdered:
+          type: integer
+        deliveryAddress:
+          type: string
+        requestedDeliveryDate:
+          type: string
+          format: date
+
+    OrderStatus:
+      type: string
+      enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED]
+
+    # =============================================================================
+    # MESSAGE SCHEMAS
+    # =============================================================================
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "message_123456789"
+        senderId:
+          type: string
+        sender:
+          $ref: '#/components/schemas/PublicUser'
+        receiverId:
+          type: string
+        receiver:
+          $ref: '#/components/schemas/PublicUser'
+        orderId:
+          type: string
+          nullable: true
+        content:
+          type: string
+          example: "Hello, I'm interested in your tomatoes"
+        attachments:
+          type: array
+          items:
+            type: string
+        isRead:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+
+    SendMessageRequest:
+      type: object
+      required: [receiverId, content]
+      properties:
+        receiverId:
+          type: string
+        content:
+          type: string
+        orderId:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            type: string
+
+    # =============================================================================
+    # LOAN APPLICATION SCHEMAS
+    # =============================================================================
+    LoanApplication:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "loan_123456789"
+        farmerId:
+          type: string
+        farmer:
+          $ref: '#/components/schemas/PublicUser'
+        mfiId:
+          type: string
+          nullable: true
+        mfi:
+          $ref: '#/components/schemas/PublicUser'
+        requestedAmount:
+          type: number
+          format: decimal
+          example: 50000.00
+        loanPurpose:
+          type: string
+          example: "Purchase seeds and fertilizer"
+        repaymentPeriodMonths:
+          type: integer
+          example: 12
+        interestRate:
+          type: number
+          format: decimal
+          example: 12.5
+        status:
+          $ref: '#/components/schemas/LoanStatus'
+        supportingDocuments:
+          type: array
+          items:
+            type: string
+        creditScoreData:
+          type: object
+        mfiNotes:
+          type: string
+          nullable: true
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateLoanRequest:
+      type: object
+      required: [requestedAmount, loanPurpose, repaymentPeriodMonths]
+      properties:
+        requestedAmount:
+          type: number
+          format: decimal
+        loanPurpose:
+          type: string
+        repaymentPeriodMonths:
+          type: integer
+        supportingDocuments:
+          type: array
+          items:
+            type: string
+
+    UpdateLoanStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/LoanStatus'
+        interestRate:
+          type: number
+          format: decimal
+        mfiNotes:
+          type: string
+
+    LoanStatus:
+      type: string
+      enum: [DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED, DISBURSED]
+
+    # =============================================================================
+    # TRAINING SCHEMAS
+    # =============================================================================
+    TrainingModule:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "training_123456789"
+        title:
+          type: string
+          example: "Climate-Smart Farming Techniques"
+        description:
+          type: string
+          example: "Learn sustainable farming practices"
+        category:
+          type: string
+          example: "Sustainable Agriculture"
+        content:
+          type: string
+        videoUrls:
+          type: array
+          items:
+            type: string
+        documentUrls:
+          type: array
+          items:
+            type: string
+        durationMinutes:
+          type: integer
+          example: 45
+        difficultyLevel:
+          $ref: '#/components/schemas/DifficultyLevel'
+        tags:
+          type: array
+          items:
+            type: string
+        isPublished:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserTrainingProgress:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        trainingModuleId:
+          type: string
+        trainingModule:
+          $ref: '#/components/schemas/TrainingModule'
+        progressPercentage:
+          type: integer
+          example: 75
+        isCompleted:
+          type: boolean
+          example: false
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastAccessedAt:
+          type: string
+          format: date-time
+
+    UpdateProgressRequest:
+      type: object
+      required: [trainingModuleId, progressPercentage]
+      properties:
+        trainingModuleId:
+          type: string
+        progressPercentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+
+    DifficultyLevel:
+      type: string
+      enum: [BEGINNER, INTERMEDIATE, ADVANCED]
+
+    # =============================================================================
+    # INFORMATION HUB SCHEMAS
+    # =============================================================================
+    WeatherInfo:
+      type: object
+      properties:
+        location:
+          type: string
+          example: "Nairobi, Kenya"
+        current:
+          type: object
+          properties:
+            temperature:
+              type: number
+              example: 22.5
+            humidity:
+              type: number
+              example: 65
+            description:
+              type: string
+              example: "Partly cloudy"
+            windSpeed:
+              type: number
+              example: 5.2
+        forecast:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              temperature:
+                type: object
+                properties:
+                  min:
+                    type: number
+                  max:
+                    type: number
+              description:
+                type: string
+              chanceOfRain:
+                type: number
+
+    WeatherAlert:
+      type: object
+      properties:
+        id:
+          type: string
+        location:
+          type: string
+        alertType:
+          type: string
+          enum: [RAIN, DROUGHT, STORM, PEST_OUTBREAK]
+        title:
+          type: string
+          example: "Heavy Rain Warning"
+        description:
+          type: string
+          example: "Heavy rainfall expected in the next 24 hours"
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        validFrom:
+          type: string
+          format: date
+        validUntil:
+          type: string
+          format: date
+        affectedCrops:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    MarketPrice:
+      type: object
+      properties:
+        id:
+          type: string
+        productName:
+          type: string
+          example: "Tomatoes"
+        category:
+          type: string
+          example: "Vegetables"
+        location:
+          type: string
+          example: "Nairobi Market"
+        pricePerUnit:
+          type: number
+          format: decimal
+          example: 45.00
+        unitType:
+          type: string
+          example: "kg"
+        marketName:
+          type: string
+          example: "Wakulima Market"
+        priceDate:
+          type: string
+          format: date
+        priceTrends:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    # =============================================================================
+    # UTILITY SCHEMAS
+    # =============================================================================
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+        totalPages:
+          type: integer
+          example: 8
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "An error occurred"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Users
+    description: User profile management
+  - name: Product Listings
+    description: Agricultural product listings management
+  - name: Orders
+    description: Order management and tracking
+  - name: Messages
+    description: User-to-user messaging system
+  - name: Loans
+    description: Loan application and management
+  - name: Training
+    description: Educational content and progress tracking
+  - name: Information Hub
+    description: Weather, market prices, and agricultural alerts
+  - name: Utility
+    description: Health checks and system utilities

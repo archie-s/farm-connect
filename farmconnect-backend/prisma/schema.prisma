@@ -1,0 +1,259 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  FARMER
+  BUYER
+  MFI
+  EXTENSION_OFFICER
+  ADMIN
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  SOLD
+  EXPIRED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum LoanStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  DISBURSED
+}
+
+enum DifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum AlertType {
+  RAIN
+  DROUGHT
+  STORM
+  PEST_OUTBREAK
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String
+  firstName       String
+  lastName        String
+  phoneNumber     String?
+  role            Role      @default(FARMER)
+  profileImageUrl String?
+  location        String?
+  isVerified      Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  listings        ProductListing[]
+  orders          Order[]          @relation("BuyerOrders")
+  sentMessages    Message[]        @relation("SentMessages")
+  receivedMessages Message[]       @relation("ReceivedMessages")
+  loanApplications LoanApplication[] @relation("FarmerLoans")
+  mfiLoans        LoanApplication[] @relation("MFILoans")
+  creditScore     CreditScore?
+  notifications   Notification[]
+  trainingProgress UserTrainingProgress[]
+}
+
+model ProductListing {
+  id              String    @id @default(uuid())
+  title           String
+  description     String
+  category        String
+  pricePerUnit    Float
+  unitType        String
+  quantityAvailable Int
+  location        String
+  images          String[]
+  status          ListingStatus @default(ACTIVE)
+  harvestDate     DateTime?
+  expiryDate      DateTime?
+  qualityCertifications String[]
+  
+  farmerId        String
+  farmer          User      @relation(fields: [farmerId], references: [id])
+  orders          Order[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Order {
+  id              String    @id @default(uuid())
+  buyerId         String
+  buyer           User      @relation("BuyerOrders", fields: [buyerId], references: [id])
+  listingId       String
+  listing         ProductListing @relation(fields: [listingId], references: [id])
+  
+  quantityOrdered Int
+  totalAmount     Float
+  status          OrderStatus @default(PENDING)
+  deliveryAddress String
+  requestedDeliveryDate DateTime?
+  
+  messages        Message[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Message {
+  id              String    @id @default(uuid())
+  senderId        String
+  sender          User      @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId      String
+  receiver        User      @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  orderId         String?
+  order           Order?    @relation(fields: [orderId], references: [id])
+  
+  content         String
+  attachments     String[]
+  isRead          Boolean   @default(false)
+  
+  createdAt       DateTime  @default(now())
+}
+
+model LoanApplication {
+  id              String    @id @default(uuid())
+  farmerId        String
+  farmer          User      @relation("FarmerLoans", fields: [farmerId], references: [id])
+  mfiId           String?
+  mfi             User?     @relation("MFILoans", fields: [mfiId], references: [id])
+  
+  requestedAmount Float
+  loanPurpose     String
+  repaymentPeriodMonths Int
+  interestRate    Float?
+  status          LoanStatus @default(DRAFT)
+  supportingDocuments String[]
+  mfiNotes        String?
+  
+  submittedAt     DateTime?
+  reviewedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model TrainingModule {
+  id              String    @id @default(uuid())
+  title           String
+  description     String
+  category        String
+  content         String
+  durationMinutes Int
+  difficultyLevel DifficultyLevel
+  isPublished     Boolean   @default(false)
+  videoUrls       String[]
+  documentUrls    String[]
+  tags            String[]
+  
+  userProgress    UserTrainingProgress[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model UserTrainingProgress {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  trainingModuleId String
+  trainingModule  TrainingModule @relation(fields: [trainingModuleId], references: [id])
+  
+  progressPercentage Int    @default(0)
+  isCompleted     Boolean   @default(false)
+  completedAt     DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([userId, trainingModuleId])
+}
+
+model WeatherAlert {
+  id              String    @id @default(uuid())
+  location        String
+  alertType       AlertType
+  title           String
+  description     String
+  severity        Severity
+  validFrom       DateTime
+  validUntil      DateTime
+  affectedCrops   String[]
+  
+  createdAt       DateTime  @default(now())
+}
+
+model MarketPrice {
+  id              String    @id @default(uuid())
+  productName     String
+  category        String
+  location        String
+  pricePerUnit    Float
+  unitType        String
+  marketName      String
+  priceDate       DateTime
+  priceTrends     Json?
+  
+  createdAt       DateTime  @default(now())
+}
+
+model CreditScore {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  
+  score           Int
+  scoreFactors    Json?
+  transactionHistory Json?
+  farmingHistory  Json?
+  lastCalculated  DateTime
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Notification {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  
+  title           String
+  message         String
+  type            String
+  data            Json?
+  isRead          Boolean   @default(false)
+  
+  createdAt       DateTime  @default(now())
+}

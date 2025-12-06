@@ -1,0 +1,551 @@
+# FarmConnect Performance Testing and Monitoring
+# Automated performance testing, load testing, and monitoring
+
+name: Performance Monitoring
+
+on:
+  schedule:
+    # Run performance tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of performance test to run'
+        required: true
+        default: 'load'
+        type: choice
+        options:
+          - load
+          - stress
+          - spike
+          - volume
+          - endurance
+      target_environment:
+        description: 'Environment to test'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+  push:
+    branches: [ main ]
+    paths:
+      - 'farmconnect-backend/**'
+      - 'farmconnect-frontend/**'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # =============================================================================
+  # PERFORMANCE BASELINE TESTING
+  # =============================================================================
+  performance-baseline:
+    name: Performance Baseline Testing
+    runs-on: ubuntu-latest
+    
+    outputs:
+      baseline-results: ${{ steps.baseline.outputs.results }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          npm install -g lighthouse
+          npm install -g @lhci/cli
+
+      - name: Run Lighthouse CI
+        id: baseline
+        run: |
+          # Determine target URL based on environment
+          if [ "${{ inputs.target_environment }}" = "production" ]; then
+            TARGET_URL="https://farmconnect.co.ke"
+            API_URL="https://api.farmconnect.co.ke"
+          else
+            TARGET_URL="https://staging.farmconnect.co.ke"
+            API_URL="https://staging-api.farmconnect.co.ke"
+          fi
+          
+          echo "Testing $TARGET_URL"
+          
+          # Run Lighthouse audit
+          lighthouse $TARGET_URL \
+            --output=json \
+            --output-path=lighthouse-report.json \
+            --chrome-flags="--headless --no-sandbox" \
+            --quiet
+          
+          # Extract key metrics
+          PERFORMANCE_SCORE=$(cat lighthouse-report.json | jq '.categories.performance.score * 100')
+          FCP=$(cat lighthouse-report.json | jq '.audits["first-contentful-paint"].numericValue')
+          LCP=$(cat lighthouse-report.json | jq '.audits["largest-contentful-paint"].numericValue')
+          CLS=$(cat lighthouse-report.json | jq '.audits["cumulative-layout-shift"].numericValue')
+          
+          echo "Performance Score: $PERFORMANCE_SCORE"
+          echo "First Contentful Paint: ${FCP}ms"
+          echo "Largest Contentful Paint: ${LCP}ms"
+          echo "Cumulative Layout Shift: $CLS"
+          
+          # Store results
+          echo "results={\"performance_score\":$PERFORMANCE_SCORE,\"fcp\":$FCP,\"lcp\":$LCP,\"cls\":$CLS}" >> $GITHUB_OUTPUT
+
+      - name: Upload Lighthouse report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: lighthouse-report.json
+          retention-days: 30
+
+      - name: Performance budget check
+        run: |
+          PERFORMANCE_SCORE=$(echo '${{ steps.baseline.outputs.results }}' | jq '.performance_score')
+          FCP=$(echo '${{ steps.baseline.outputs.results }}' | jq '.fcp')
+          LCP=$(echo '${{ steps.baseline.outputs.results }}' | jq '.lcp')
+          
+          echo "## Performance Budget Check" >> $GITHUB_STEP_SUMMARY
+          
+          # Performance score should be >= 90
+          if (( $(echo "$PERFORMANCE_SCORE >= 90" | bc -l) )); then
+            echo "✅ Performance Score: $PERFORMANCE_SCORE/100 (Target: ≥90)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Performance Score: $PERFORMANCE_SCORE/100 (Target: ≥90)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # FCP should be <= 2000ms
+          if (( $(echo "$FCP <= 2000" | bc -l) )); then
+            echo "✅ First Contentful Paint: ${FCP}ms (Target: ≤2000ms)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ First Contentful Paint: ${FCP}ms (Target: ≤2000ms)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # LCP should be <= 2500ms
+          if (( $(echo "$LCP <= 2500" | bc -l) )); then
+            echo "✅ Largest Contentful Paint: ${LCP}ms (Target: ≤2500ms)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Largest Contentful Paint: ${LCP}ms (Target: ≤2500ms)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # =============================================================================
+  # LOAD TESTING WITH K6
+  # =============================================================================
+  load-testing:
+    name: Load Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create K6 test script
+        run: |
+          mkdir -p tests/performance
+          cat > tests/performance/load-test.js << 'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+          import { Rate } from 'k6/metrics';
+          
+          // Custom metrics
+          const errorRate = new Rate('errors');
+          
+          // Test configuration
+          export const options = {
+            stages: [
+              { duration: '2m', target: 10 },   // Ramp up
+              { duration: '5m', target: 50 },   // Stay at 50 users
+              { duration: '2m', target: 100 },  // Ramp up to 100 users
+              { duration: '5m', target: 100 },  // Stay at 100 users
+              { duration: '2m', target: 0 },    // Ramp down
+            ],
+            thresholds: {
+              http_req_duration: ['p(95)<2000'], // 95% of requests under 2s
+              http_req_failed: ['rate<0.05'],    // Error rate under 5%
+              errors: ['rate<0.1'],              // Custom error rate under 10%
+            },
+          };
+          
+          // Test data
+          const BASE_URL = __ENV.TARGET_URL || 'https://staging-api.farmconnect.co.ke';
+          
+          export default function () {
+            // Test health endpoint
+            let response = http.get(`${BASE_URL}/api/v1/health`);
+            check(response, {
+              'health check status is 200': (r) => r.status === 200,
+              'health check response time < 500ms': (r) => r.timings.duration < 500,
+            }) || errorRate.add(1);
+            
+            sleep(1);
+            
+            // Test listings endpoint
+            response = http.get(`${BASE_URL}/api/v1/listings?limit=10`);
+            check(response, {
+              'listings status is 200': (r) => r.status === 200,
+              'listings response time < 1000ms': (r) => r.timings.duration < 1000,
+              'listings returns data': (r) => JSON.parse(r.body).data.length > 0,
+            }) || errorRate.add(1);
+            
+            sleep(1);
+            
+            // Test authentication endpoint
+            const loginPayload = JSON.stringify({
+              email: 'test@example.com',
+              password: 'testpassword'
+            });
+            
+            response = http.post(`${BASE_URL}/api/v1/auth/login`, loginPayload, {
+              headers: { 'Content-Type': 'application/json' },
+            });
+            
+            check(response, {
+              'login response time < 1500ms': (r) => r.timings.duration < 1500,
+            }) || errorRate.add(1);
+            
+            sleep(2);
+          }
+          EOF
+
+      - name: Run K6 load test
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: tests/performance/load-test.js
+        env:
+          TARGET_URL: ${{ inputs.target_environment == 'production' && 'https://api.farmconnect.co.ke' || 'https://staging-api.farmconnect.co.ke' }}
+
+      - name: Upload K6 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results
+          path: results.json
+          retention-days: 30
+        if: always()
+
+  # =============================================================================
+  # STRESS TESTING
+  # =============================================================================
+  stress-testing:
+    name: Stress Testing
+    runs-on: ubuntu-latest
+    if: inputs.test_type == 'stress' || github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create K6 stress test script
+        run: |
+          mkdir -p tests/performance
+          cat > tests/performance/stress-test.js << 'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+          
+          export const options = {
+            stages: [
+              { duration: '1m', target: 50 },   // Ramp up to 50 users
+              { duration: '2m', target: 100 },  // Ramp up to 100 users
+              { duration: '2m', target: 200 },  // Ramp up to 200 users
+              { duration: '2m', target: 300 },  // Ramp up to 300 users
+              { duration: '5m', target: 300 },  // Stay at 300 users
+              { duration: '2m', target: 0 },    // Ramp down
+            ],
+            thresholds: {
+              http_req_duration: ['p(95)<5000'], // 95% of requests under 5s
+              http_req_failed: ['rate<0.1'],     // Error rate under 10%
+            },
+          };
+          
+          const BASE_URL = __ENV.TARGET_URL || 'https://staging-api.farmconnect.co.ke';
+          
+          export default function () {
+            const response = http.get(`${BASE_URL}/api/v1/health`);
+            check(response, {
+              'status is 200': (r) => r.status === 200,
+            });
+            sleep(1);
+          }
+          EOF
+
+      - name: Run K6 stress test
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: tests/performance/stress-test.js
+        env:
+          TARGET_URL: ${{ inputs.target_environment == 'production' && 'https://api.farmconnect.co.ke' || 'https://staging-api.farmconnect.co.ke' }}
+
+  # =============================================================================
+  # DATABASE PERFORMANCE TESTING
+  # =============================================================================
+  database-performance:
+    name: Database Performance Testing
+    runs-on: ubuntu-latest
+    if: inputs.target_environment != 'production'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: ./farmconnect-backend
+        run: npm ci
+
+      - name: Run database performance tests
+        working-directory: ./farmconnect-backend
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          # Create a simple database performance test
+          cat > db-performance-test.js << 'EOF'
+          const { PrismaClient } = require('@prisma/client');
+          const prisma = new PrismaClient();
+          
+          async function testDatabasePerformance() {
+            console.log('🔍 Testing database performance...');
+            
+            const startTime = Date.now();
+            
+            // Test 1: Simple query performance
+            console.time('Simple query');
+            await prisma.user.findMany({ take: 100 });
+            console.timeEnd('Simple query');
+            
+            // Test 2: Complex query with joins
+            console.time('Complex query');
+            await prisma.listing.findMany({
+              take: 50,
+              include: {
+                user: true,
+                orders: true,
+              },
+            });
+            console.timeEnd('Complex query');
+            
+            // Test 3: Aggregation query
+            console.time('Aggregation query');
+            await prisma.listing.aggregate({
+              _count: true,
+              _avg: { price: true },
+              _max: { price: true },
+              _min: { price: true },
+            });
+            console.timeEnd('Aggregation query');
+            
+            const totalTime = Date.now() - startTime;
+            console.log(`Total test time: ${totalTime}ms`);
+            
+            // Performance thresholds
+            if (totalTime > 5000) {
+              console.error('❌ Database performance is below threshold');
+              process.exit(1);
+            } else {
+              console.log('✅ Database performance is within acceptable limits');
+            }
+          }
+          
+          testDatabasePerformance()
+            .catch(console.error)
+            .finally(() => prisma.$disconnect());
+          EOF
+          
+          node db-performance-test.js
+
+  # =============================================================================
+  # FRONTEND PERFORMANCE TESTING
+  # =============================================================================
+  frontend-performance:
+    name: Frontend Performance Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Playwright
+        run: |
+          npm install -g @playwright/test
+          npx playwright install chromium
+
+      - name: Create Playwright performance test
+        run: |
+          mkdir -p tests/performance
+          cat > tests/performance/frontend-performance.spec.js << 'EOF'
+          const { test, expect } = require('@playwright/test');
+          
+          const TARGET_URL = process.env.TARGET_URL || 'https://staging.farmconnect.co.ke';
+          
+          test.describe('Frontend Performance Tests', () => {
+            test('Page load performance', async ({ page }) => {
+              // Start measuring
+              const startTime = Date.now();
+              
+              // Navigate to the page
+              await page.goto(TARGET_URL);
+              
+              // Wait for the page to be fully loaded
+              await page.waitForLoadState('networkidle');
+              
+              const loadTime = Date.now() - startTime;
+              console.log(`Page load time: ${loadTime}ms`);
+              
+              // Assert load time is under 3 seconds
+              expect(loadTime).toBeLessThan(3000);
+            });
+            
+            test('Navigation performance', async ({ page }) => {
+              await page.goto(TARGET_URL);
+              
+              // Test navigation to marketplace
+              const startTime = Date.now();
+              await page.click('text=Browse Market');
+              await page.waitForLoadState('networkidle');
+              const navigationTime = Date.now() - startTime;
+              
+              console.log(`Navigation time: ${navigationTime}ms`);
+              expect(navigationTime).toBeLessThan(2000);
+            });
+            
+            test('Search functionality performance', async ({ page }) => {
+              await page.goto(`${TARGET_URL}/marketplace`);
+              
+              // Test search performance
+              const startTime = Date.now();
+              await page.fill('input[placeholder*="Search"]', 'tomatoes');
+              await page.waitForTimeout(1000); // Wait for debounce
+              const searchTime = Date.now() - startTime;
+              
+              console.log(`Search time: ${searchTime}ms`);
+              expect(searchTime).toBeLessThan(1500);
+            });
+          });
+          EOF
+
+      - name: Run Playwright performance tests
+        run: |
+          npx playwright test tests/performance/frontend-performance.spec.js
+        env:
+          TARGET_URL: ${{ inputs.target_environment == 'production' && 'https://farmconnect.co.ke' || 'https://staging.farmconnect.co.ke' }}
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+        if: always()
+
+  # =============================================================================
+  # PERFORMANCE MONITORING REPORT
+  # =============================================================================
+  performance-report:
+    name: Generate Performance Report
+    runs-on: ubuntu-latest
+    needs: [performance-baseline, load-testing, stress-testing, database-performance, frontend-performance]
+    if: always()
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate performance report
+        run: |
+          echo "# FarmConnect Performance Report" > performance-report.md
+          echo "Generated on: $(date)" >> performance-report.md
+          echo "Environment: ${{ inputs.target_environment || 'staging' }}" >> performance-report.md
+          echo "Test Type: ${{ inputs.test_type || 'scheduled' }}" >> performance-report.md
+          echo "" >> performance-report.md
+          
+          echo "## Test Results Summary" >> performance-report.md
+          echo "- Performance Baseline: ${{ needs.performance-baseline.result }}" >> performance-report.md
+          echo "- Load Testing: ${{ needs.load-testing.result }}" >> performance-report.md
+          echo "- Stress Testing: ${{ needs.stress-testing.result }}" >> performance-report.md
+          echo "- Database Performance: ${{ needs.database-performance.result }}" >> performance-report.md
+          echo "- Frontend Performance: ${{ needs.frontend-performance.result }}" >> performance-report.md
+          echo "" >> performance-report.md
+          
+          if [ -f lighthouse-report/lighthouse-report.json ]; then
+            echo "## Lighthouse Metrics" >> performance-report.md
+            PERFORMANCE_SCORE=$(cat lighthouse-report/lighthouse-report.json | jq '.categories.performance.score * 100')
+            FCP=$(cat lighthouse-report/lighthouse-report.json | jq '.audits["first-contentful-paint"].numericValue')
+            LCP=$(cat lighthouse-report/lighthouse-report.json | jq '.audits["largest-contentful-paint"].numericValue')
+            
+            echo "- Performance Score: $PERFORMANCE_SCORE/100" >> performance-report.md
+            echo "- First Contentful Paint: ${FCP}ms" >> performance-report.md
+            echo "- Largest Contentful Paint: ${LCP}ms" >> performance-report.md
+            echo "" >> performance-report.md
+          fi
+          
+          echo "## Recommendations" >> performance-report.md
+          echo "Based on the test results, consider the following optimizations:" >> performance-report.md
+          echo "- Monitor database query performance" >> performance-report.md
+          echo "- Optimize frontend bundle size" >> performance-report.md
+          echo "- Implement caching strategies" >> performance-report.md
+          echo "- Consider CDN for static assets" >> performance-report.md
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: performance-report.md
+          retention-days: 90
+
+      - name: Comment performance report on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('performance-report.md', 'utf8');
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 📊 Performance Test Results\n\n${report}`
+            });
+
+  # =============================================================================
+  # NOTIFICATION
+  # =============================================================================
+  notify-results:
+    name: Notify Performance Results
+    runs-on: ubuntu-latest
+    needs: [performance-baseline, load-testing, stress-testing, database-performance, frontend-performance]
+    if: always()
+    
+    steps:
+      - name: Send Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            📊 FarmConnect Performance Testing Completed
+            
+            **Environment**: ${{ inputs.target_environment || 'staging' }}
+            **Test Type**: ${{ inputs.test_type || 'scheduled' }}
+            
+            **Results:**
+            - Baseline: ${{ needs.performance-baseline.result }}
+            - Load Testing: ${{ needs.load-testing.result }}
+            - Stress Testing: ${{ needs.stress-testing.result }}
+            - Database: ${{ needs.database-performance.result }}
+            - Frontend: ${{ needs.frontend-performance.result }}
+            
+            View detailed results: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()

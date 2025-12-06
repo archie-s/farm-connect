@@ -1,0 +1,58 @@
+{
+  "name": "farmconnect",
+  "version": "1.0.0",
+  "description": "Digital Agricultural Marketplace for Smallholder Farmers in Kenya",
+  "main": "index.js",
+  "scripts": {
+    "dev:backend": "cd farmconnect-backend && npm run dev",
+    "dev:frontend": "cd farmconnect-frontend && npm run dev",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:backend": "cd farmconnect-backend && npm run build",
+    "build:frontend": "cd farmconnect-frontend && npm run build",
+    "build:all": "npm run build:backend && npm run build:frontend",
+    "test:backend": "cd farmconnect-backend && npm test",
+    "test:frontend": "cd farmconnect-frontend && npm test",
+    "test:all": "npm run test:backend && npm run test:frontend",
+    "lint:backend": "cd farmconnect-backend && npm run lint",
+    "lint:frontend": "cd farmconnect-frontend && npm run lint",
+    "lint:all": "npm run lint:backend && npm run lint:frontend",
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down",
+    "docker:clean": "docker-compose down -v --rmi all",
+    "setup": "npm run setup:backend && npm run setup:frontend",
+    "setup:backend": "cd farmconnect-backend && npm install && npx prisma generate",
+    "setup:frontend": "cd farmconnect-frontend && npm install",
+    "db:migrate": "cd farmconnect-backend && npx prisma migrate dev",
+    "db:seed": "cd farmconnect-backend && npm run seed",
+    "db:reset": "cd farmconnect-backend && npx prisma migrate reset --force",
+    "deploy:aws": "bash scripts/deploy-aws.sh",
+    "postinstall": "npm run setup"
+  },
+  "keywords": [
+    "agriculture",
+    "marketplace",
+    "farmers",
+    "kenya",
+    "digital-platform",
+    "react",
+    "nodejs",
+    "postgresql"
+  ],
+  "author": "FarmConnect Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/farmconnect/farmconnect.git"
+  },
+  "bugs": {
+    "url": "https://github.com/farmconnect/farmconnect/issues"
+  },
+  "homepage": "https://farmconnect.co.ke"
+}

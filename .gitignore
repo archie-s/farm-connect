@@ -1,0 +1,83 @@
+# ----------------------
+# General & System
+# ----------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# ----------------------
+# Logs
+# ----------------------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ----------------------
+# Dependencies
+# ----------------------
+node_modules/
+*/node_modules/
+
+# ----------------------
+# Environment Variables (CRITICAL)
+# ----------------------
+# Ignore all .env files in any folder
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Allow example env files
+!.env.example
+
+# ----------------------
+# Editor Directories
+# ----------------------
+.vscode/
+.idea/
+*.suo
+*.ntvs
+*.njsproj
+*.sln
+*.sw?
+
+# ----------------------
+# Backend (Node/Express/Prisma)
+# ----------------------
+farmconnect-backend/dist/
+farmconnect-backend/build/
+farmconnect-backend/coverage/
+
+# Prisma
+# Keep schema.prisma and migrations, but ignore SQLite db if you ever switch
+*.db
+*.db-journal
+
+# ----------------------
+# Frontend (Vite/React)
+# ----------------------
+farmconnect-frontend/dist/
+farmconnect-frontend/build/
+farmconnect-frontend/.vite/
+
+# Testing
+coverage/
+*.lcov
+
+# ----------------------
+# Docker (Optional)
+# ----------------------
+# If you have local overrides for docker-compose
+docker-compose.override.yml
+
+# ----------------------
+# Misc
+# ----------------------
+.eslintcache

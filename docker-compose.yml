@@ -1,0 +1,198 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # DATABASE SERVICE
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: farmconnect-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: farmconnect_db
+      POSTGRES_USER: farmconnect_user
+      POSTGRES_PASSWORD: farmconnect_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - farmconnect-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farmconnect_user -d farmconnect_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+
+  # =============================================================================
+  # REDIS SERVICE (for caching and sessions)
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: farmconnect-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - farmconnect-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # BACKEND SERVICE
+  # =============================================================================
+  backend:
+    build:
+      context: ./farmconnect-backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: farmconnect-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://farmconnect_user:farmconnect_password@postgres:5432/farmconnect_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      JWT_REFRESH_SECRET: dev-refresh-secret-change-in-production
+      FRONTEND_URL: http://localhost:3000
+      BACKEND_URL: http://localhost:4000
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./farmconnect-backend:/app
+      - /app/node_modules
+      - ./farmconnect-backend/uploads:/app/uploads
+    networks:
+      - farmconnect-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: npm run dev
+
+  # =============================================================================
+  # FRONTEND SERVICE
+  # =============================================================================
+  frontend:
+    build:
+      context: ./farmconnect-frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: farmconnect-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:4000/api/v1
+      VITE_APP_NAME: FarmConnect
+      VITE_APP_VERSION: 1.0.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./farmconnect-frontend:/app
+      - /app/node_modules
+    networks:
+      - farmconnect-network
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0
+
+  # =============================================================================
+  # NGINX REVERSE PROXY (for production-like setup)
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: farmconnect-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - farmconnect-network
+    depends_on:
+      - backend
+      - frontend
+    profiles:
+      - production
+
+  # =============================================================================
+  # ADMINER (Database Management Tool)
+  # =============================================================================
+  adminer:
+    image: adminer:latest
+    container_name: farmconnect-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - farmconnect-network
+    depends_on:
+      - postgres
+    profiles:
+      - tools
+
+  # =============================================================================
+  # MAILHOG (Email Testing Tool)
+  # =============================================================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: farmconnect-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    networks:
+      - farmconnect-network
+    profiles:
+      - tools
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  farmconnect-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

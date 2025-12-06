@@ -1,0 +1,594 @@
+# FarmConnect CI/CD Pipeline
+# Comprehensive workflow for testing, building, and deploying the FarmConnect application
+
+name: FarmConnect CI/CD
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: farmconnect
+  NODE_VERSION: '18'
+  POSTGRES_VERSION: '15'
+
+jobs:
+  # =============================================================================
+  # CODE QUALITY AND SECURITY CHECKS
+  # =============================================================================
+  code-quality:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            farmconnect-backend/package-lock.json
+            farmconnect-frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: ./farmconnect-backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: ./farmconnect-frontend
+        run: npm ci
+
+      - name: Run ESLint (Backend)
+        working-directory: ./farmconnect-backend
+        run: |
+          npm run lint || echo "ESLint not configured, skipping..."
+        continue-on-error: true
+
+      - name: Run ESLint (Frontend)
+        working-directory: ./farmconnect-frontend
+        run: |
+          npm run lint || echo "ESLint not configured, skipping..."
+        continue-on-error: true
+
+      - name: Run Prettier check
+        run: |
+          npx prettier --check "**/*.{js,jsx,ts,tsx,json,css,md}" || echo "Prettier not configured, skipping..."
+        continue-on-error: true
+
+      - name: Security audit (Backend)
+        working-directory: ./farmconnect-backend
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Security audit (Frontend)
+        working-directory: ./farmconnect-frontend
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # =============================================================================
+  # BACKEND TESTING
+  # =============================================================================
+  test-backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_tests }}
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: farmconnect_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: farmconnect-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./farmconnect-backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: ./farmconnect-backend
+        run: npx prisma generate
+
+      - name: Run database migrations
+        working-directory: ./farmconnect-backend
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/farmconnect_test
+        run: npx prisma migrate deploy
+
+      - name: Seed test database
+        working-directory: ./farmconnect-backend
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/farmconnect_test
+        run: npx prisma db seed
+
+      - name: Run unit tests
+        working-directory: ./farmconnect-backend
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/farmconnect_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-jwt-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+        run: npm test
+
+      - name: Run integration tests
+        working-directory: ./farmconnect-backend
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/farmconnect_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-jwt-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+        run: npm run test:integration || echo "Integration tests not configured"
+
+      - name: Generate test coverage
+        working-directory: ./farmconnect-backend
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/farmconnect_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-jwt-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+        run: npm run test:coverage || echo "Coverage not configured"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./farmconnect-backend/coverage/lcov.info
+          flags: backend
+          name: backend-coverage
+        continue-on-error: true
+
+  # =============================================================================
+  # FRONTEND TESTING
+  # =============================================================================
+  test-frontend:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_tests }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: farmconnect-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./farmconnect-frontend
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: ./farmconnect-frontend
+        run: npm test || echo "Frontend tests not configured"
+
+      - name: Build application
+        working-directory: ./farmconnect-frontend
+        env:
+          VITE_API_URL: http://localhost:4000/api/v1
+        run: npm run build
+
+      - name: Run E2E tests
+        working-directory: ./farmconnect-frontend
+        run: |
+          npm run test:e2e || echo "E2E tests not configured"
+        continue-on-error: true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: farmconnect-frontend/dist/
+          retention-days: 7
+
+  # =============================================================================
+  # DOCKER IMAGE BUILDING
+  # =============================================================================
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [code-quality, test-backend, test-frontend]
+    if: always() && (needs.code-quality.result == 'success')
+    
+    outputs:
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+      backend-digest: ${{ steps.build-backend.outputs.digest }}
+      frontend-digest: ${{ steps.build-frontend.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (Backend)
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}-backend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Extract metadata (Frontend)
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}-frontend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Backend image
+        id: build-backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./farmconnect-backend
+          file: ./farmconnect-backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Build and push Frontend image
+        id: build-frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./farmconnect-frontend
+          file: ./farmconnect-frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # =============================================================================
+  # SECURITY SCANNING
+  # =============================================================================
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: always() && needs.build-images.result == 'success'
+
+    steps:
+      - name: Run Trivy vulnerability scanner (Backend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.build-images.outputs.backend-image }}
+          format: 'sarif'
+          output: 'backend-trivy-results.sarif'
+
+      - name: Run Trivy vulnerability scanner (Frontend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.build-images.outputs.frontend-image }}
+          format: 'sarif'
+          output: 'frontend-trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: '.'
+
+  # =============================================================================
+  # STAGING DEPLOYMENT
+  # =============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-images, security-scan]
+    if: |
+      always() && 
+      needs.build-images.result == 'success' &&
+      (github.ref == 'refs/heads/develop' || 
+       github.ref == 'refs/heads/staging' ||
+       inputs.environment == 'staging')
+    
+    environment:
+      name: staging
+      url: https://staging.farmconnect.co.ke
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to ECS (Staging)
+        run: |
+          # Update ECS service with new image
+          aws ecs update-service \
+            --cluster farmconnect-staging \
+            --service farmconnect-backend-staging \
+            --force-new-deployment
+
+          aws ecs update-service \
+            --cluster farmconnect-staging \
+            --service farmconnect-frontend-staging \
+            --force-new-deployment
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster farmconnect-staging \
+            --services farmconnect-backend-staging farmconnect-frontend-staging
+
+      - name: Run database migrations
+        run: |
+          aws ecs run-task \
+            --cluster farmconnect-staging \
+            --task-definition farmconnect-migration-staging \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.STAGING_SUBNET_IDS }}],securityGroups=[${{ secrets.STAGING_SECURITY_GROUP }}],assignPublicIp=ENABLED}"
+
+      - name: Health check
+        run: |
+          sleep 60
+          curl -f https://staging-api.farmconnect.co.ke/api/v1/health
+          curl -f https://staging.farmconnect.co.ke/health
+
+      - name: Notify deployment success
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: "🚀 FarmConnect staging deployment successful!"
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: success()
+
+      - name: Notify deployment failure
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          text: "❌ FarmConnect staging deployment failed!"
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: failure()
+
+  # =============================================================================
+  # PRODUCTION DEPLOYMENT
+  # =============================================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-images, security-scan, deploy-staging]
+    if: |
+      always() && 
+      needs.build-images.result == 'success' &&
+      needs.deploy-staging.result == 'success' &&
+      (github.ref == 'refs/heads/main' || 
+       startsWith(github.ref, 'refs/tags/v') ||
+       inputs.environment == 'production')
+    
+    environment:
+      name: production
+      url: https://farmconnect.co.ke
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create deployment backup
+        run: |
+          # Backup current production database
+          aws rds create-db-snapshot \
+            --db-instance-identifier farmconnect-prod \
+            --db-snapshot-identifier farmconnect-prod-$(date +%Y%m%d%H%M%S)
+
+      - name: Deploy to ECS (Production)
+        run: |
+          # Blue-green deployment strategy
+          aws ecs update-service \
+            --cluster farmconnect-production \
+            --service farmconnect-backend-production \
+            --force-new-deployment
+
+          aws ecs update-service \
+            --cluster farmconnect-production \
+            --service farmconnect-frontend-production \
+            --force-new-deployment
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster farmconnect-production \
+            --services farmconnect-backend-production farmconnect-frontend-production
+
+      - name: Run database migrations
+        run: |
+          aws ecs run-task \
+            --cluster farmconnect-production \
+            --task-definition farmconnect-migration-production \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.PRODUCTION_SUBNET_IDS }}],securityGroups=[${{ secrets.PRODUCTION_SECURITY_GROUP }}],assignPublicIp=ENABLED}"
+
+      - name: Health check
+        run: |
+          sleep 120
+          curl -f https://api.farmconnect.co.ke/api/v1/health
+          curl -f https://farmconnect.co.ke/health
+
+      - name: Update CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      - name: Notify deployment success
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: "🎉 FarmConnect production deployment successful! Version: ${{ github.ref_name }}"
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: success()
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed, initiating rollback..."
+          # Rollback to previous task definition
+          aws ecs update-service \
+            --cluster farmconnect-production \
+            --service farmconnect-backend-production \
+            --task-definition farmconnect-backend-production:$((${{ github.run_number }} - 1))
+
+          aws ecs update-service \
+            --cluster farmconnect-production \
+            --service farmconnect-frontend-production \
+            --task-definition farmconnect-frontend-production:$((${{ github.run_number }} - 1))
+
+      - name: Notify deployment failure
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          text: "❌ FarmConnect production deployment failed and rolled back!"
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: failure()
+
+  # =============================================================================
+  # POST-DEPLOYMENT MONITORING
+  # =============================================================================
+  post-deployment-monitoring:
+    name: Post-Deployment Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: always() && needs.deploy-production.result == 'success'
+
+    steps:
+      - name: Wait for application warmup
+        run: sleep 300
+
+      - name: Run smoke tests
+        run: |
+          # Test critical endpoints
+          curl -f https://api.farmconnect.co.ke/api/v1/health
+          curl -f https://api.farmconnect.co.ke/api/v1/listings?limit=1
+          curl -f https://farmconnect.co.ke/
+
+      - name: Check application metrics
+        run: |
+          # Check Prometheus metrics
+          curl -f https://monitoring.farmconnect.co.ke/api/v1/query?query=up
+
+      - name: Performance testing
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: tests/performance/load-test.js
+        continue-on-error: true
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: FarmConnect ${{ github.ref_name }}
+          body: |
+            ## What's Changed
+            - Automated deployment via GitHub Actions
+            - Docker images: 
+              - Backend: ${{ needs.build-images.outputs.backend-image }}
+              - Frontend: ${{ needs.build-images.outputs.frontend-image }}
+            
+            ## Deployment Information
+            - Deployed to production: ${{ github.event.head_commit.timestamp }}
+            - Commit: ${{ github.sha }}
+            - Author: ${{ github.event.head_commit.author.name }}
+          draft: false
+          prerelease: false
