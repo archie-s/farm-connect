@@ -17,7 +17,8 @@ export const Dialog = ({ children, open, onOpenChange }) => {
 export const DialogTrigger = ({ children, asChild }) => {
   const { onOpenChange } = useContext(DialogContext);
   return (
-    <div onClick={() => onOpenChange(true)} style={{ display: 'inline-block' }}>
+    // This onClick is what makes the button actually work!
+    <div onClick={() => onOpenChange(true)} style={{ display: 'inline-block', cursor: 'pointer' }}>
       {children}
     </div>
   );
@@ -26,12 +27,12 @@ export const DialogTrigger = ({ children, asChild }) => {
 export const DialogContent = ({ children, className }) => {
   const { open, onOpenChange } = useContext(DialogContext);
   
-  // CRITICAL FIX: If 'open' is false, render NOTHING.
+  // If closed, render nothing (hidden)
   if (!open) return null;
 
   return (
     <div className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm ${className}`}>
-      {/* Clicking the dark background also closes the modal */}
+      {/* Clicking background closes modal */}
       <div className="absolute inset-0" onClick={() => onOpenChange(false)} />
       
       <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative z-10">
