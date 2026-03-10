@@ -1,4 +1,4 @@
-const asyncHandler = require('../../src/utils/asyncHandler');
+const asyncHandler = require('./utils/asyncHandler');
 
 describe('AsyncHandler Utility', () => {
   it('should handle successful async function', async () => {

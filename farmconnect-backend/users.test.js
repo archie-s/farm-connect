@@ -1,6 +1,6 @@
 const request = require('supertest');
-const app = require('../../src/app');
-const { generateTokens } = require('../../src/utils/jwt');
+const app = require('./app');
+const { generateTokens } = require('./utils/jwt');
 
 describe('User Endpoints', () => {
   let farmerToken, buyerToken, farmerId, buyerId;

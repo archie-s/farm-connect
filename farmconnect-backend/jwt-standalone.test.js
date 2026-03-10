@@ -7,7 +7,7 @@ process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
 process.env.JWT_EXPIRES_IN = '15m';
 process.env.JWT_REFRESH_EXPIRES_IN = '7d';
 
-const { generateTokens, verifyToken } = require('../../src/utils/jwt');
+const { generateTokens, verifyToken } = require('./utils/jwt');
 
 describe('JWT Utilities (Standalone)', () => {
   const testPayload = {

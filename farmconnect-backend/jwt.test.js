@@ -1,4 +1,4 @@
-const { generateTokens, verifyToken } = require('../../src/utils/jwt');
+const { generateTokens, verifyToken } = require('./utils/jwt');
 
 describe('JWT Utilities', () => {
   const testPayload = {

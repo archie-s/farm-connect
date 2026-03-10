@@ -1,6 +1,6 @@
 const request = require('supertest');
-const app = require('../../src/app');
-const { prisma } = require('../setup');
+const app = require('./app');
+const { prisma } = require('./setup');
 
 describe('Authentication Endpoints', () => {
   describe('POST /api/v1/auth/register', () => {
