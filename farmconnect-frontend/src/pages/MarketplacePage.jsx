@@ -22,6 +22,7 @@ const MarketplacePage = () => {
   const [sending, setSending] = useState(false)
   const [success, setSuccess] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
 
   // 1. SMART IMAGE LOGIC: Matches keywords to real images
   const getProductImage = (title, category) => {
@@ -93,7 +94,13 @@ const MarketplacePage = () => {
         setSending(false)
     }
   }
-
+const filteredListings = listings.filter((listing) => {
+  const q = searchQuery.toLowerCase()
+  return (
+    listing.title.toLowerCase().includes(q) ||
+    listing.location.toLowerCase().includes(q)
+  )
+})
   const filterCategories = [
     { id: 'all', label: 'All Products' },
     { id: 'Vegetables', label: 'Vegetables' },
@@ -117,8 +124,20 @@ const MarketplacePage = () => {
             )}
          </div>
          
-         {/* 3. INTERACTIVE FILTER CHIPS */}
-         <div className="max-w-7xl mx-auto mt-6 flex gap-3 overflow-x-auto pb-2">
+         {/* Search Bar */}
+<div className="max-w-7xl mx-auto mt-4 relative">
+  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+  <input
+    type="text"
+    placeholder="Search by product or location..."
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+  />
+</div>
+
+{/* 3. INTERACTIVE FILTER CHIPS */}
+<div className="max-w-7xl mx-auto mt-4 flex gap-3 overflow-x-auto pb-2">
             {filterCategories.map((cat) => (
                 <Badge 
                     key={cat.id}
@@ -149,13 +168,7 @@ const MarketplacePage = () => {
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {listings.map((listing) => (
-                <Card key={listing.id} className="border border-gray-200 shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow bg-white">
-                
-                {/* Image Area with Smart Logic */}
-                <div className="relative h-56 w-full bg-gray-100">
-                    <img 
-                    src={getProductImage(listing.title, listing.category)} 
+            {filteredListings.map((listing) => (
                     alt={listing.title}
                     className="w-full h-full object-cover"
                     />
@@ -213,7 +226,7 @@ const MarketplacePage = () => {
             </div>
         )}
         
-        {!loading && listings.length === 0 && (
+        {!loading && filteredListings.length === 0 && (
             <div className="text-center py-12 text-gray-500">
                 No products found in this category.
             </div>
