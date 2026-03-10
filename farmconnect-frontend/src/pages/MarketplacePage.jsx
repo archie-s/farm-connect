@@ -234,7 +234,14 @@ const MarketplacePage = () => {
                     rows={4} 
                 />
                 <Button onClick={handleSendMessage} disabled={sending} className="w-full bg-green-500">
-                    {sending ? <Loader2 className="animate-spin" /> : <><Send className="mr-2 h-4 w-4" /> Send Message</>}
+                  {sending ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <span className="inline-flex items-center">
+                      <Send className="mr-2 h-4 w-4" />
+                      Send Message
+                    </span>
+                  )}
                 </Button>
             </div>
         </DialogContent>
