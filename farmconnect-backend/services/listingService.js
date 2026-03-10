@@ -7,12 +7,19 @@ const getListings = async (filters) => {
   const skip = (page - 1) * limit;
   
   // Build where clause
+  const pricePerUnit = {};
+  if (typeof minPrice === "number" && !Number.isNaN(minPrice)) {
+    pricePerUnit.gte = minPrice;
+  }
+  if (typeof maxPrice === "number" && !Number.isNaN(maxPrice)) {
+    pricePerUnit.lte = maxPrice;
+  }
+
   const where = {
     status: "ACTIVE", // Only show active listings
     ...(category && { category: { contains: category, mode: "insensitive" } }),
     ...(location && { location: { contains: location, mode: "insensitive" } }),
-    ...(minPrice && { pricePerUnit: { gte: minPrice } }),
-    ...(maxPrice && { pricePerUnit: { lte: maxPrice } }),
+    ...(Object.keys(pricePerUnit).length > 0 && { pricePerUnit }),
     ...(search && {
       OR: [
         { title: { contains: search, mode: "insensitive" } },

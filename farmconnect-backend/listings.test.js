@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../../src/app');
+const app = require('./app');
 
 describe('Listing Endpoints', () => {
   let farmerToken, buyerToken, farmerId, listingId;
@@ -13,6 +13,11 @@ describe('Listing Endpoints', () => {
         password: 'password123',
       });
 
+    expect(farmerLogin.status).toBe(200);
+    if (farmerLogin.status !== 200) {
+      throw new Error(`Farmer login failed: ${JSON.stringify(farmerLogin.body)}`);
+    }
+
     // Login as buyer
     const buyerLogin = await request(app)
       .post('/api/v1/auth/login')
@@ -20,6 +25,11 @@ describe('Listing Endpoints', () => {
         email: 'buyer1@farmconnect.co.ke',
         password: 'password123',
       });
+
+    expect(buyerLogin.status).toBe(200);
+    if (buyerLogin.status !== 200) {
+      throw new Error(`Buyer login failed: ${JSON.stringify(buyerLogin.body)}`);
+    }
 
     farmerId = farmerLogin.body.data.user.id;
     farmerToken = farmerLogin.body.data.accessToken;

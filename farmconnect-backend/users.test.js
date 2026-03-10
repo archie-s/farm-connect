@@ -1,15 +1,10 @@
 const request = require('supertest');
-const app = require('../../src/app');
-const { generateTokens } = require('../../src/utils/jwt');
+const app = require('./app');
 
 describe('User Endpoints', () => {
   let farmerToken, buyerToken, farmerId, buyerId;
 
   beforeAll(async () => {
-    // Generate tokens for test users
-    farmerToken = generateTokens({ userId: 'farmer1_id', role: 'FARMER' }).accessToken;
-    buyerToken = generateTokens({ userId: 'buyer1_id', role: 'BUYER' }).accessToken;
-    
     // Get actual user IDs from seeded data
     const farmer = await request(app)
       .post('/api/v1/auth/login')
@@ -17,6 +12,11 @@ describe('User Endpoints', () => {
         email: 'farmer1@farmconnect.co.ke',
         password: 'password123',
       });
+
+    expect(farmer.status).toBe(200);
+    if (farmer.status !== 200) {
+      throw new Error(`Farmer login failed: ${JSON.stringify(farmer.body)}`);
+    }
     
     const buyer = await request(app)
       .post('/api/v1/auth/login')
@@ -24,6 +24,11 @@ describe('User Endpoints', () => {
         email: 'buyer1@farmconnect.co.ke',
         password: 'password123',
       });
+
+    expect(buyer.status).toBe(200);
+    if (buyer.status !== 200) {
+      throw new Error(`Buyer login failed: ${JSON.stringify(buyer.body)}`);
+    }
 
     farmerId = farmer.body.data.user.id;
     buyerId = buyer.body.data.user.id;

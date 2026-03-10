@@ -182,12 +182,12 @@ const filteredListings = listings.filter((listing) => {
                 {/* Content Area */}
                 <CardContent className="p-5">
                     <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-gray-900">{listing.title}</h3>
+                    <h3 className="text-xl font-bold text-gray-900">{listing?.title ?? ''}</h3>
                     </div>
                     
                     <div className="flex items-center text-gray-500 text-sm mb-3">
                         <MapPin className="h-4 w-4 mr-1" />
-                        {listing.location}
+                        <span>{listing?.location ?? ''}</span>
                     </div>
 
                     <div className="flex items-center text-yellow-500 text-sm mb-4">
@@ -247,7 +247,14 @@ const filteredListings = listings.filter((listing) => {
                     rows={4} 
                 />
                 <Button onClick={handleSendMessage} disabled={sending} className="w-full bg-green-500">
-                    {sending ? <Loader2 className="animate-spin" /> : <><Send className="mr-2 h-4 w-4" /> Send Message</>}
+                  {sending ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <span className="inline-flex items-center">
+                      <Send className="mr-2 h-4 w-4" />
+                      Send Message
+                    </span>
+                  )}
                 </Button>
             </div>
         </DialogContent>

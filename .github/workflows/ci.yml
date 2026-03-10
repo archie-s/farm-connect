@@ -1,0 +1,97 @@
+name: FarmConnect CI
+
+on:
+  pull_request:
+    branches: [main, develop, staging]
+  push:
+    branches: [main, develop, staging]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: Backend Tests (Node 18)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: farmconnect_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user -d farmconnect_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://test_user:test_password@localhost:5432/farmconnect_test
+      JWT_SECRET: ci-jwt-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: farmconnect-backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: farmconnect-backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: farmconnect-backend
+        run: npx prisma generate
+
+      - name: Apply migrations
+        working-directory: farmconnect-backend
+        run: npx prisma migrate deploy
+
+      - name: Seed test database
+        working-directory: farmconnect-backend
+        run: node seed.js
+
+      - name: Run backend tests
+        working-directory: farmconnect-backend
+        run: npm test
+
+  frontend-build:
+    name: Frontend Build (Node 18)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: farmconnect-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: farmconnect-frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: farmconnect-frontend
+        run: npm run build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: farmconnect-frontend/dist
+          retention-days: 7
