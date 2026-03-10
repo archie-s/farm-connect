@@ -5,14 +5,16 @@ const asyncHandler = require("../utils/asyncHandler");
 
 const getListings = asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, category, location, minPrice, maxPrice, search } = req.query;
+  const parsedMinPrice = minPrice !== undefined ? Number(minPrice) : undefined;
+  const parsedMaxPrice = maxPrice !== undefined ? Number(maxPrice) : undefined;
   
   const filters = {
     page: parseInt(page),
     limit: Math.min(parseInt(limit), 100), // Max 100 items per page
     category,
     location,
-    minPrice: minPrice ? parseFloat(minPrice) : undefined,
-    maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+    minPrice: Number.isNaN(parsedMinPrice) ? undefined : parsedMinPrice,
+    maxPrice: Number.isNaN(parsedMaxPrice) ? undefined : parsedMaxPrice,
     search,
   };
 
