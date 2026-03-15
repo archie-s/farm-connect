@@ -102,6 +102,10 @@ const MarketplacePage = () => {
     { id: 'Root Vegetables', label: 'Root Veg' }
   ]
 
+  const filteredListings = activeCategory === 'all'
+    ? listings
+    : listings.filter((listing) => listing.category === activeCategory)
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -149,7 +153,7 @@ const MarketplacePage = () => {
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {listings.map((listing) => (
+          {filteredListings.map((listing) => (
                 <Card key={listing.id} className="border border-gray-200 shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow bg-white">
                 
                 {/* Image Area with Smart Logic */}
@@ -213,7 +217,7 @@ const MarketplacePage = () => {
             </div>
         )}
         
-        {!loading && listings.length === 0 && (
+        {!loading && filteredListings.length === 0 && (
             <div className="text-center py-12 text-gray-500">
                 No products found in this category.
             </div>
