@@ -94,13 +94,6 @@ const MarketplacePage = () => {
         setSending(false)
     }
   }
-const filteredListings = listings.filter((listing) => {
-  const q = searchQuery.toLowerCase()
-  return (
-    listing.title.toLowerCase().includes(q) ||
-    listing.location.toLowerCase().includes(q)
-  )
-})
   const filterCategories = [
     { id: 'all', label: 'All Products' },
     { id: 'Vegetables', label: 'Vegetables' },
@@ -108,6 +101,16 @@ const filteredListings = listings.filter((listing) => {
     { id: 'Grains', label: 'Grains' },
     { id: 'Root Vegetables', label: 'Root Veg' }
   ]
+
+  const filteredListings = listings
+    .filter((listing) => activeCategory === 'all' || listing.category === activeCategory)
+    .filter((listing) => {
+      const q = searchQuery.toLowerCase()
+      return (
+        listing.title.toLowerCase().includes(q) ||
+        listing.location.toLowerCase().includes(q)
+      )
+    })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -168,7 +171,13 @@ const filteredListings = listings.filter((listing) => {
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredListings.map((listing) => (
+          {filteredListings.map((listing) => (
+                <Card key={listing.id} className="border border-gray-200 shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow bg-white">
+                
+                {/* Image Area with Smart Logic */}
+                <div className="relative h-56 w-full bg-gray-100">
+                    <img 
+                    src={getProductImage(listing.title, listing.category)} 
                     alt={listing.title}
                     className="w-full h-full object-cover"
                     />
@@ -182,12 +191,12 @@ const filteredListings = listings.filter((listing) => {
                 {/* Content Area */}
                 <CardContent className="p-5">
                     <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-gray-900">{listing?.title ?? ''}</h3>
+                  <h3 className="text-xl font-bold text-gray-900">{listing?.title || ''}</h3>
                     </div>
                     
                     <div className="flex items-center text-gray-500 text-sm mb-3">
                         <MapPin className="h-4 w-4 mr-1" />
-                        <span>{listing?.location ?? ''}</span>
+                    <span>{listing?.location || ''}</span>
                     </div>
 
                     <div className="flex items-center text-yellow-500 text-sm mb-4">
