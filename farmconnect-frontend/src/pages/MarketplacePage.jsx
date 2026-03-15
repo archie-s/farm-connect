@@ -169,12 +169,12 @@ const MarketplacePage = () => {
                 {/* Content Area */}
                 <CardContent className="p-5">
                     <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-gray-900">{listing?.title ?? ''}</h3>
+                  <h3 className="text-xl font-bold text-gray-900">{listing?.title || ''}</h3>
                     </div>
                     
                     <div className="flex items-center text-gray-500 text-sm mb-3">
                         <MapPin className="h-4 w-4 mr-1" />
-                        <span>{listing?.location ?? ''}</span>
+                    <span>{listing?.location || ''}</span>
                     </div>
 
                     <div className="flex items-center text-yellow-500 text-sm mb-4">
