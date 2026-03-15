@@ -61,12 +61,12 @@ describe('Listing Endpoints', () => {
 
     it('should filter listings by price range', async () => {
       const response = await request(app)
-        .get('/api/v1/listings?minPrice=40&maxPrice=60')
+        .get('/api/v1/listings?minPrice=30&maxPrice=60')
         .expect(200);
 
       expect(response.body.success).toBe(true);
       response.body.data.listings.forEach(listing => {
-        expect(listing.pricePerUnit).toBeGreaterThanOrEqual(40);
+        expect(listing.pricePerUnit).toBeGreaterThanOrEqual(30);
         expect(listing.pricePerUnit).toBeLessThanOrEqual(60);
       });
     });

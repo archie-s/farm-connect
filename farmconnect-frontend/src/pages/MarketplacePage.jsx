@@ -24,25 +24,19 @@ const MarketplacePage = () => {
   const [activeCategory, setActiveCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
 
-  // 1. SMART IMAGE LOGIC: Matches keywords to real images
   const getProductImage = (title, category) => {
     const t = title.toLowerCase();
     const c = category.toLowerCase();
-    
-    if (t.includes('maize') || t.includes('corn')) return "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=800&q=80"; // Maize
-    if (t.includes('tomato')) return "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&q=80"; // Tomato
-    if (t.includes('onion')) return "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=800&q=80"; // Onion
-    if (t.includes('potato')) return "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&q=80"; // Potato
-    if (t.includes('bean')) return "https://images.unsplash.com/photo-1553621042-f6e147245754?w=800&q=80"; // Beans
-    if (t.includes('carrot')) return "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=800&q=80"; // Carrots
-    if (t.includes('kales') || t.includes('sukuma')) return "https://images.unsplash.com/photo-1524593166156-312f362cada0?w=800&q=80"; // Greens
-    
-    // Fallbacks by category
+    if (t.includes('maize') || t.includes('corn')) return "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=800&q=80";
+    if (t.includes('tomato')) return "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=800&q=80";
+    if (t.includes('onion')) return "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=800&q=80";
+    if (t.includes('potato')) return "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&q=80";
+    if (t.includes('bean')) return "https://images.unsplash.com/photo-1553621042-f6e147245754?w=800&q=80";
+    if (t.includes('carrot')) return "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=800&q=80";
+    if (t.includes('kales') || t.includes('sukuma')) return "https://images.unsplash.com/photo-1524593166156-312f362cada0?w=800&q=80";
     if (c.includes('fruit')) return "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&q=80";
     if (c.includes('grain')) return "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&q=80";
-    
-    // Default
-    return "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=800&q=80"; 
+    return "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=800&q=80";
   }
 
   useEffect(() => {
@@ -52,12 +46,10 @@ const MarketplacePage = () => {
   const loadListings = async () => {
     try {
       setLoading(true)
-      // 2. INTERACTIVE FILTERS: Pass category to API
       const params = {}
       if (activeCategory !== 'all') {
         params.category = activeCategory
       }
-      
       const response = await apiService.getListings(params)
       if (response.success) {
         setListings(response.data.listings)
@@ -78,20 +70,20 @@ const MarketplacePage = () => {
     if (!messageText.trim()) return
     setSending(true)
     try {
-        const response = await apiService.sendMessage({
-            receiverId: contactListing.farmer.id,
-            content: messageText
-        })
-        if (response.success) {
-            setSuccess('Message sent!')
-            setContactListing(null)
-            setMessageText('')
-            setTimeout(() => setSuccess(''), 3000)
-        }
+      const response = await apiService.sendMessage({
+        receiverId: contactListing.farmer.id,
+        content: messageText
+      })
+      if (response.success) {
+        setSuccess('Message sent!')
+        setContactListing(null)
+        setMessageText('')
+        setTimeout(() => setSuccess(''), 3000)
+      }
     } catch (err) {
-        console.error(err)
+      console.error(err)
     } finally {
-        setSending(false)
+      setSending(false)
     }
   }
   const filterCategories = [
@@ -116,59 +108,58 @@ const MarketplacePage = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b px-8 py-4">
-         <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Marketplace</h1>
-            
-            {user?.role === 'FARMER' && (
-               <Button className="bg-green-500 hover:bg-green-600 rounded-full px-6">
-                 <Plus className="h-4 w-4 mr-2" />
-                 Create Listing
-               </Button>
-            )}
-         </div>
-         
-         {/* Search Bar */}
-<div className="max-w-7xl mx-auto mt-4 relative">
-  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-  <input
-    type="text"
-    placeholder="Search by product or location..."
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-  />
-</div>
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900">Marketplace</h1>
+          {user?.role === 'FARMER' && (
+            <Button className="bg-green-500 hover:bg-green-600 rounded-full px-6">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Listing
+            </Button>
+          )}
+        </div>
 
-{/* 3. INTERACTIVE FILTER CHIPS */}
-<div className="max-w-7xl mx-auto mt-4 flex gap-3 overflow-x-auto pb-2">
-            {filterCategories.map((cat) => (
-                <Badge 
-                    key={cat.id}
-                    onClick={() => setActiveCategory(cat.id)}
-                    variant={activeCategory === cat.id ? "secondary" : "outline"}
-                    className={`px-4 py-2 rounded-full cursor-pointer transition-colors ${
-                        activeCategory === cat.id 
-                        ? 'bg-black text-white hover:bg-gray-800' 
-                        : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'
-                    }`}
-                >
-                    {cat.label}
-                </Badge>
-            ))}
-         </div>
+        {/* Search Bar */}
+        <div className="max-w-7xl mx-auto mt-4 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by product or location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
+        </div>
+
+        {/* Filter Chips */}
+        <div className="max-w-7xl mx-auto mt-4 flex gap-3 overflow-x-auto pb-2">
+          {filterCategories.map((cat) => (
+            <Badge
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              variant={activeCategory === cat.id ? "secondary" : "outline"}
+              className={`px-4 py-2 rounded-full cursor-pointer transition-colors ${
+                activeCategory === cat.id
+                  ? 'bg-black text-white hover:bg-gray-800'
+                  : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              {cat.label}
+            </Badge>
+          ))}
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {success && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
-                <span className="block sm:inline">{success}</span>
-            </div>
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+            <span className="block sm:inline">{success}</span>
+          </div>
         )}
 
         {loading ? (
-            <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-            </div>
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredListings.map((listing) => (
@@ -180,12 +171,12 @@ const MarketplacePage = () => {
                     src={getProductImage(listing.title, listing.category)} 
                     alt={listing.title}
                     className="w-full h-full object-cover"
-                    />
-                    {listing.farmer?.isVerified && (
+                  />
+                  {listing.farmer?.isVerified && (
                     <Badge className="absolute top-3 right-3 bg-green-500 hover:bg-green-600 text-white border-none px-3 py-1 rounded-full">
-                        Verified Seller
+                      Verified Seller
                     </Badge>
-                    )}
+                  )}
                 </div>
 
                 {/* Content Area */}
@@ -199,73 +190,70 @@ const MarketplacePage = () => {
                     <span>{listing?.location || ''}</span>
                     </div>
 
-                    <div className="flex items-center text-yellow-500 text-sm mb-4">
-                        <Star className="h-4 w-4 fill-current" />
-                        <span className="ml-1 font-medium text-gray-900">4.8</span>
-                        <span className="text-gray-400 ml-1">(24 reviews)</span>
-                    </div>
+                  <div className="flex items-center text-gray-500 text-sm mb-3">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    {listing.location}
+                  </div>
 
-                    <div className="space-y-1 mb-6">
-                        <div className="flex items-baseline">
-                            <span className="text-green-600 font-bold text-xl">KSh {listing.pricePerUnit}</span>
-                            <span className="text-gray-500 text-sm ml-1">per {listing.unitType}</span>
-                        </div>
-                        <div className="text-gray-600 text-sm">
-                            Available: <span className="font-medium text-gray-900">{listing.quantityAvailable} {listing.unitType}</span>
-                        </div>
-                    </div>
+                  <div className="flex items-center text-yellow-500 text-sm mb-4">
+                    <Star className="h-4 w-4 fill-current" />
+                    <span className="ml-1 font-medium text-gray-900">4.8</span>
+                    <span className="text-gray-400 ml-1">(24 reviews)</span>
+                  </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-3">
-                        <Button 
-                            className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl h-12 font-semibold"
-                            onClick={() => openContactDialog(listing)}
-                        >
-                            <ShoppingCart className="h-5 w-5 mr-2" />
-                            Contact Seller
-                        </Button>
-                        
-                        <Button variant="outline" className="w-12 h-12 rounded-xl border-gray-300 p-0 flex items-center justify-center">
-                            <Phone className="h-5 w-5 text-gray-600" />
-                        </Button>
+                  <div className="space-y-1 mb-6">
+                    <div className="flex items-baseline">
+                      <span className="text-green-600 font-bold text-xl">KSh {listing.pricePerUnit}</span>
+                      <span className="text-gray-500 text-sm ml-1">per {listing.unitType}</span>
                     </div>
+                    <div className="text-gray-600 text-sm">
+                      Available: <span className="font-medium text-gray-900">{listing.quantityAvailable} {listing.unitType}</span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3">
+                    <Button
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl h-12 font-semibold"
+                      onClick={() => openContactDialog(listing)}
+                    >
+                      <ShoppingCart className="h-5 w-5 mr-2" />
+                      Contact Seller
+                    </Button>
+                    <Button variant="outline" className="w-12 h-12 rounded-xl border-gray-300 p-0 flex items-center justify-center">
+                      <Phone className="h-5 w-5 text-gray-600" />
+                    </Button>
+                  </div>
                 </CardContent>
-                </Card>
+              </Card>
             ))}
-            </div>
+          </div>
         )}
-        
+
         {!loading && filteredListings.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-                No products found in this category.
-            </div>
+          <div className="text-center py-12 text-gray-500">
+            No products found in this category.
+          </div>
         )}
       </div>
 
       {/* Contact Dialog */}
       <Dialog open={!!contactListing} onOpenChange={(open) => !open && setContactListing(null)}>
         <DialogContent className="max-w-md">
-            <DialogHeader>
-                <DialogTitle>Contact Seller</DialogTitle>
-                <DialogDescription>Send a message to {contactListing?.farmer?.firstName}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-                <Textarea 
-                    value={messageText} 
-                    onChange={(e) => setMessageText(e.target.value)} 
-                    rows={4} 
-                />
-                <Button onClick={handleSendMessage} disabled={sending} className="w-full bg-green-500">
-                  {sending ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <span className="inline-flex items-center">
-                      <Send className="mr-2 h-4 w-4" />
-                      Send Message
-                    </span>
-                  )}
-                </Button>
-            </div>
+          <DialogHeader>
+            <DialogTitle>Contact Seller</DialogTitle>
+            <DialogDescription>Send a message to {contactListing?.farmer?.firstName}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Textarea
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              rows={4}
+            />
+            <Button onClick={handleSendMessage} disabled={sending} className="w-full bg-green-500">
+              {sending ? <Loader2 className="animate-spin" /> : <><Send className="mr-2 h-4 w-4" /> Send Message</>}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
