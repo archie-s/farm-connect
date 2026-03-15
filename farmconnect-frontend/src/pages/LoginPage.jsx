@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +21,7 @@ const LoginPage = () => {
   
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleChange = (e) => {
     setFormData({
@@ -44,7 +45,8 @@ const LoginPage = () => {
           accessToken: response.data.accessToken,
           refreshToken: response.data.refreshToken
         })
-        navigate('/dashboard')
+        const redirectTo = location.state?.from?.pathname || '/dashboard'
+        navigate(redirectTo, { replace: true })
       }
     } catch (error) {
       setError(error.message || 'Login failed. Please try again.')
