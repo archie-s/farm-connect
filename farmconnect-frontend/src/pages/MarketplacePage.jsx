@@ -94,13 +94,6 @@ const MarketplacePage = () => {
         setSending(false)
     }
   }
-const filteredListings = listings.filter((listing) => {
-  const q = searchQuery.toLowerCase()
-  return (
-    listing.title.toLowerCase().includes(q) ||
-    listing.location.toLowerCase().includes(q)
-  )
-})
   const filterCategories = [
     { id: 'all', label: 'All Products' },
     { id: 'Vegetables', label: 'Vegetables' },
@@ -109,9 +102,15 @@ const filteredListings = listings.filter((listing) => {
     { id: 'Root Vegetables', label: 'Root Veg' }
   ]
 
-  const filteredListings = activeCategory === 'all'
-    ? listings
-    : listings.filter((listing) => listing.category === activeCategory)
+  const filteredListings = listings
+    .filter((listing) => activeCategory === 'all' || listing.category === activeCategory)
+    .filter((listing) => {
+      const q = searchQuery.toLowerCase()
+      return (
+        listing.title.toLowerCase().includes(q) ||
+        listing.location.toLowerCase().includes(q)
+      )
+    })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -179,7 +178,6 @@ const filteredListings = listings.filter((listing) => {
                 <div className="relative h-56 w-full bg-gray-100">
                     <img 
                     src={getProductImage(listing.title, listing.category)} 
-            {filteredListings.map((listing) => (
                     alt={listing.title}
                     className="w-full h-full object-cover"
                     />
