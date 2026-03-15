@@ -84,7 +84,7 @@ const RegisterPage = () => {
             accessToken: response.data.accessToken,
             refreshToken: response.data.refreshToken
           })
-          navigate('/dashboard')
+          navigate('/dashboard', { replace: true })
         }, 1500)
       }
     } catch (error) {

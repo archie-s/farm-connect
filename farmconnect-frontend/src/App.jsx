@@ -149,8 +149,17 @@ const Layout = ({ children }) => {
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  return isAuthenticated
+    ? children
+    : <Navigate to="/login" replace state={{ from: location }} />;
+};
+
+const PublicOnlyRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
 };
 
 export default function App() {
@@ -160,8 +169,8 @@ export default function App() {
         <Layout>
           <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
+            <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/marketplace" element={<ProtectedRoute><MarketplacePage /></ProtectedRoute>} />
             <Route path="/financial-services" element={<ProtectedRoute><FinancialServicesPage /></ProtectedRoute>} />
