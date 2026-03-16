@@ -25,7 +25,7 @@ export const SelectTrigger = ({ children, className }) => {
     <button
       type="button"
       onClick={() => setOpen(!open)}
-      className={`flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`flex h-11 w-full items-center justify-between rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 transition focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-200 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       {children}
     </button>
@@ -41,7 +41,7 @@ export const SelectContent = ({ children }) => {
   const { open } = useContext(SelectContext);
   if (!open) return null;
   return (
-    <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+    <div className="absolute z-50 mt-1.5 max-h-60 w-full overflow-auto rounded-xl border border-gray-200 bg-white py-1 text-sm shadow-lg focus:outline-none">
       {children}
     </div>
   );
@@ -52,7 +52,7 @@ export const SelectItem = ({ children, value, className }) => {
   return (
     <div
       onClick={() => handleSelect(value)}
-      className={`relative cursor-default select-none py-2 pl-3 pr-9 hover:bg-green-100 hover:text-green-900 ${className}`}
+      className={`relative cursor-default select-none px-3 py-2 text-sm hover:bg-green-50 hover:text-green-800 ${className}`}
     >
       <span className="block truncate font-normal">{children}</span>
     </div>

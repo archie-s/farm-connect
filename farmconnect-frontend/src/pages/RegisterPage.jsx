@@ -103,7 +103,7 @@ const RegisterPage = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 px-4 py-8 sm:px-6 lg:px-8">
         <Card className="w-full max-w-md shadow-xl border-0">
           <CardContent className="pt-6">
             <div className="text-center space-y-4">
@@ -123,8 +123,9 @@ const RegisterPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-xl items-center justify-center">
+        <div className="w-full">
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center space-x-2 text-2xl font-bold text-gray-900 hover:text-green-600 transition-colors">
@@ -134,7 +135,7 @@ const RegisterPage = () => {
           <p className="text-gray-600 mt-2">Join the agricultural revolution</p>
         </div>
 
-        <Card className="shadow-xl border-0">
+        <Card className="border-0 shadow-xl">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
             <CardDescription className="text-center">
@@ -153,7 +154,7 @@ const RegisterPage = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Name Fields */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
                   <Input
@@ -324,13 +325,14 @@ const RegisterPage = () => {
           </CardContent>
         </Card>
 
-        <div className="text-center mt-8">
+        <div className="text-center mt-6">
           <Link 
             to="/" 
             className="text-sm text-gray-600 hover:text-gray-800 hover:underline"
           >
             ← Back to Home
           </Link>
+        </div>
         </div>
       </div>
     </div>
