@@ -10,6 +10,7 @@ import {
   TrendingUp, 
   Users, 
   DollarSign,
+  Banknote,
   Plus,
   Eye
 } from 'lucide-react'
@@ -97,9 +98,16 @@ const DashboardPage = () => {
     if (user?.role === 'FARMER') {
       return [
         { title: 'Create New Listing', href: '/marketplace?action=create', icon: Plus, color: 'bg-green-600' },
-        { title: 'View Orders', href: '/orders', icon: ShoppingCart, color: 'bg-blue-600' },
+        { title: 'Apply for Loan', href: '/loans', icon: Banknote, color: 'bg-blue-600' },
         { title: 'Messages', href: '/messages', icon: MessageCircle, color: 'bg-purple-600' },
         { title: 'Browse Market', href: '/marketplace', icon: Eye, color: 'bg-orange-600' }
+      ]
+    } else if (user?.role === 'MFI') {
+      return [
+        { title: 'Review Loans', href: '/loans', icon: Banknote, color: 'bg-green-600' },
+        { title: 'Messages', href: '/messages', icon: MessageCircle, color: 'bg-blue-600' },
+        { title: 'View Orders', href: '/orders', icon: ShoppingCart, color: 'bg-purple-600' },
+        { title: 'Analytics', href: '/analytics', icon: TrendingUp, color: 'bg-orange-600' }
       ]
     } else if (user?.role === 'BUYER') {
       return [

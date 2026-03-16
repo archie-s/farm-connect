@@ -53,6 +53,11 @@ import MessagesPage from './pages/MessagesPage';
 import OrdersPage from './pages/OrdersPage';
 import InfoHubPage from './pages/InfoHubPage';
 import ProfilePage from './pages/ProfilePage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import UserManagementPage from './pages/UserManagementPage';
+import SystemHealthPage from './pages/SystemHealthPage';
+import ReportsPage from './pages/ReportsPage';
+import LoansPage from './pages/LoansPage';
 import { Button } from './components/ui/button';
 import { LayoutDashboard, ShoppingBag, Wallet, GraduationCap, Home as HomeIcon, Menu, X, User, LogOut } from 'lucide-react';
 
@@ -179,6 +184,11 @@ export default function App() {
             <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
             <Route path="/info-hub" element={<ProtectedRoute><InfoHubPage /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute><UserManagementPage /></ProtectedRoute>} />
+            <Route path="/health" element={<ProtectedRoute><SystemHealthPage /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+            <Route path="/loans" element={<ProtectedRoute><LoansPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Layout>
