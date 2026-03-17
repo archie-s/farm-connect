@@ -66,7 +66,7 @@ const NavItem = ({ to, icon: Icon, children, onClick }) => {
   const location = useLocation();
   const isActive = location.pathname === to;
   return (
-    <Link to={to} onClick={onClick} className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors text-sm font-medium ${isActive ? 'bg-green-100 text-green-700' : 'text-gray-600 hover:bg-gray-100'}`}>
+    <Link to={to} onClick={onClick} className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors ${isActive ? 'bg-green-100 text-green-700' : 'text-gray-600 hover:bg-gray-100'}`}>
       <Icon size={16} />
       <span>{children}</span>
     </Link>
@@ -78,9 +78,9 @@ const Layout = ({ children }) => {
   const { user, logout } = useAuth();
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="app-shell">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 flex-shrink-0">
@@ -89,7 +89,7 @@ const Layout = ({ children }) => {
             </Link>
 
             {/* Desktop Navigation - RESTORED & FIXED */}
-            <nav className="hidden md:flex items-center gap-1 mx-4">
+            <nav className="hidden md:flex items-center gap-1 mx-4 overflow-x-auto">
               <NavItem to="/" icon={HomeIcon}>Home</NavItem>
               <NavItem to="/dashboard" icon={LayoutDashboard}>Dashboard</NavItem>
               <NavItem to="/marketplace" icon={ShoppingBag}>Marketplace</NavItem>
@@ -129,7 +129,7 @@ const Layout = ({ children }) => {
         {/* Mobile Menu Dropdown */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 bg-white">
-            <div className="px-4 pt-2 pb-4 space-y-1">
+            <div className="app-shell pt-2 pb-4 space-y-1">
               <NavItem to="/" icon={HomeIcon} onClick={() => setMobileMenuOpen(false)}>Home</NavItem>
               <NavItem to="/dashboard" icon={LayoutDashboard} onClick={() => setMobileMenuOpen(false)}>Dashboard</NavItem>
               <NavItem to="/marketplace" icon={ShoppingBag} onClick={() => setMobileMenuOpen(false)}>Marketplace</NavItem>
@@ -142,9 +142,9 @@ const Layout = ({ children }) => {
           </div>
         )}
       </header>
-      <main className="flex-grow">{children}</main>
+      <main className="flex-grow w-full">{children}</main>
       <footer className="bg-gray-900 text-gray-300 py-8 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm">
+        <div className="app-shell text-center text-sm">
           <p>&copy; 2025 FarmConnect. All rights reserved.</p>
         </div>
       </footer>

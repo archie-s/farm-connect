@@ -69,8 +69,9 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-lg items-center justify-center">
+        <div className="w-full">
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center space-x-2 text-2xl font-bold text-gray-900 hover:text-green-600 transition-colors">
@@ -80,7 +81,7 @@ const LoginPage = () => {
           <p className="text-gray-600 mt-2">Welcome back! Sign in to your account</p>
         </div>
 
-        <Card className="shadow-xl border-0">
+        <Card className="border-0 shadow-xl">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
             <CardDescription className="text-center">
@@ -172,7 +173,7 @@ const LoginPage = () => {
             {/* Demo Credentials */}
             <div className="space-y-2">
               <p className="text-xs text-gray-600 text-center">Quick login with demo accounts:</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {demoCredentials.map((cred, index) => (
                   <Button
                     key={index}
@@ -201,13 +202,14 @@ const LoginPage = () => {
           </CardContent>
         </Card>
 
-        <div className="text-center mt-8">
+        <div className="text-center mt-6">
           <Link 
             to="/" 
             className="text-sm text-gray-600 hover:text-gray-800 hover:underline"
           >
             ← Back to Home
           </Link>
+        </div>
         </div>
       </div>
     </div>
